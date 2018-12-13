@@ -1,0 +1,23 @@
+{
+  "clientId": "Q08wlNwFEKuGgqZHFo5tUxGr2TdF4jLb8VM2RZ9wfjYeVFX0dW",
+  "clientSecret": "cPMp1dQ21bOIbXe4wYed7FmOhpkPryGjPQbfnULd",
+  "redirectUri": "http://localhost:3000/callback",
+  "authorization_endpoint":"https://appcenter.intuit.com/connect/oauth2",
+  "token_endpoint":"https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer",
+  "sandbox_api_uri": "https://sandbox-quickbooks.api.intuit.com/v3/company/",
+  "production_api_uri": "https://quickbooks.api.intuit.com/v3/company/",
+  "scopes": {
+    "sign_in_with_intuit": [
+      "openid",
+      "profile",
+      "email",
+      "phone",
+      "address"
+    ],
+    "connect_to_quickbooks": [
+      "com.intuit.quickbooks.accounting",
+      "com.intuit.quickbooks.payment"
+    ]
+  },
+  "useSandbox": true
+}
