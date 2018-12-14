@@ -31,8 +31,9 @@ app.use(session({ secret: 'secret', resave: 'false', saveUninitialized: 'false' 
 Create body parsers for application/json and application/x-www-form-urlencoded
  */
 var bodyParser = require('body-parser')
-var AccessToken,gRefreshAccessToken;
+var AccessToken, gRefreshAccessToken, gAccessToken;
 app.use(bodyParser.json())
+
 var realmid2;
 var urlencodedParser = bodyParser.urlencoded({ extended: false })
 var oauthClient = new OAuthClient({
@@ -96,9 +97,34 @@ app.get('/callback', function (req, res) {
             // console.log('The Token is  ' + JSON.stringify(authResponse.getJson().access_token));
             test_auth = authResponse.getJson();
             accessToken = JSON.stringify(authResponse.getJson());
-            // console.log("access token in callback is");
-            // console.log(accessToken);
+            let temp_daata = JSON.parse(accessToken);
+            console.log(temp_daata.access_token);
+            console.log("/////////////////////////////////")
+            console.log(temp_daata.refresh_token);
+            fs.writeFile("/home/admin1/Desktop/qb/OAuth2.0-demo-nodejs-master/accessToken", temp_daata.access_token, function (err) {
+                if (err) {
+                    return console.log(err);
+                }
+                fs.writeFile("/home/admin1/Desktop/qb/OAuth2.0-demo-nodejs-master/refreshToken", temp_daata.refresh_token, function (err) {
+                    if (err) {
+                        return console.log(err);
+                    }
+
+                    console.log("The refresh file was saved!");
+                });
+                fs.writeFile("/home/admin1/Desktop/qb/OAuth2.0-demo-nodejs-master/Token", accessToken, function (err) {
+                    if (err) {
+                        return console.log(err);
+                    }
+
+                    console.log("The token file was saved!");
+                });
+                console.log("The file was saved!");
+            });
+
+            console.log("*************************************");
             AccessToken = accessToken;
+
 
         })
         .catch(function (e) {
@@ -210,23 +236,26 @@ app.get('/qbtrail', function (req, res) {
             res.send(JSON.stringify(rows, null, 2));
         });
 });
-const callme = function () {
+const callme = async function () {
+
+
     console.log("in call me function");
-    var xy ;
+    var xy;
+
     // var ret;
 
-    xy = oauthClient.refreshUsingToken(obj.refresh_token)
+    xy = await oauthClient.refreshUsingToken(gRefreshAccessToken)
         .then(function (authResponse) {
             console.log("xy in call meeeeeeeeeeeeeeeeeeeeeeeee");
             console.log("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
-        //    console.log( JSON.stringify(authResponse.getJson()));
-           var tfg =JSON.stringify(authResponse.getJson());
-           objfg = JSON.parse(tfg);
-           tokenfg = objfg.access_token;
-           gRefreshAccessToken= tokenfg;
-            
+            //    console.log( JSON.stringify(authResponse.getJson()));
+            var tfg = JSON.stringify(authResponse.getJson());
+            objfg = JSON.parse(tfg);
+            tokenfg = objfg.access_token;
+            gRefreshAccessToken = tokenfg;
+
             // console.log("authresponse access token "+authResponse.token.Token.access_token);
-            
+
             console.log(tokenfg);
             // return authResponse;
             // console.log("qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq");
@@ -235,34 +264,120 @@ const callme = function () {
             console.error("The error message is er:" + e);
             console.error(e.intuit_tid);
         });
-       
-        console.log(xy);
-    
-    return  xy;
+
+    console.log(xy);
+
+    return xy;
 };
+
+const readRefresh = async function(){
+      fs.readFile("/home/admin1/Desktop/qb/OAuth2.0-demo-nodejs-master/refreshToken", "utf8", function(err, data) {
+        console.log("refresh token from text file");
+        console.log(data);
+        gRefreshAccessToken= data;
+
+    // }).then(function(){
+    //     console.log("after refresh token from file");
+    });
+}
+app.get('/read_api',function(req,res){
+    fs.readFile("/home/admin1/Desktop/qb/OAuth2.0-demo-nodejs-master/refreshToken", "utf8", function(err, data) {
+        console.log("refresh token from text file");
+        console.log(data);
+        gRefreshAccessToken= data;
+        fs.readFile("/home/admin1/Desktop/qb/OAuth2.0-demo-nodejs-master/accessToken", "utf8", function(err, data2) {
+            console.log("refresh token from text file");
+            console.log(data2);
+            gAccessToken= data;
+            
+        // }).then(function(){
+        //     console.log("after refresh token from file");
+        });
+        
+    // }).then(function(){
+    //     console.log("after refresh token from file");
+    });
+    res.redirect('http://localhost:3000/call_api');
+});
 app.get('/call_api', function (req, res) {
     console.log("response code for call api");
     // console.log(res.statusCode);
     // console.log(AccessToken);
-    obj = JSON.parse(AccessToken);
-    token = obj.access_token;
+    // obj = JSON.parse(AccessToken);
+    // token = obj.access_token;
     // console.log("refreshhhhhhhhhhhhhhh  " + obj.refresh_token);
+    // fs.readFile("/home/admin1/Desktop/qb/OAuth2.0-demo-nodejs-master/refreshToken", "utf8", function(err, data) {
+    //     console.log("refresh token from text file");
+    //     console.log(data);
+    //     gRefreshAccessToken= data;
 
+    // }).then(function(){
+    //     console.log("after refresh token from file");
+    // });
     console.log("call api session");
     var token;
-    oauthClient.refreshToken = obj.refresh_token;
-    oauthClient.accessToken = obj.access_token;
-    // var qwert= oauthClient.refreshUsingToken(obj.refresh_token)
-    //     .then(function (authResponse) {
-    //         // console.log("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
-    //         // console.log('Tokens refreshed : ' + JSON.stringify(authResponse.json()));
-    //         // console.log("qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq");
-    //     })
-    //     .catch(function (e) {
-    //         console.error("The error message is :" + e.originalMessage);
-    //         console.error(e.intuit_tid);
-    //     });
-    var wer = callme();
+    // oauthClient.refreshToken = obj.refresh_token;
+    // oauthClient.accessToken = obj.access_token;
+        oauthClient.refreshToken = gRefreshAccessToken;
+    oauthClient.accessToken = gAccessToken;
+ 
+    var wer = callme().then(function () {
+        console.log("heyyyyyyyyyyyyyyyy");
+        if (gAccessToken == undefined) {
+            // console.log("no token");
+            res.status(401);
+            console.log("eror token status");
+            // console.log(res.statusCode);
+            res.send("no token for u");
+        }
+        else {
+
+            // console.log("e516546");
+            console.log("new token ::::::::::::::::::::::::::::::");
+            console.log(gRefreshAccessToken);
+
+            // obj = JSON.parse(AccessToken);
+            // token = obj.access_token;
+            token = gRefreshAccessToken;
+            // console.log("accccssssssssssssss  " + token)
+            if (!token) return res.json({ error: 'Not authorized' })
+            // if(!req.session.realmId) return res.json({
+            //   error: 'No realm ID.  QBO calls only work if the accounting scope was passed!'
+            // })
+
+            // Set up API call (with OAuth2 accessToken)
+            var url = config.sandbox_api_uri + tryrealmID + "/query?query=Select * from Customer WHERE Id = '1'"
+            var requestObj = {
+                url: url,
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                    'Accept': 'application/json'
+                }
+            }
+
+            // Make API call
+            request(requestObj, function (err, response) {
+                console.log("response status code call api");
+                console.log(response.statusCode);
+
+                res.send(response.body)
+                //  res.redirect('/refresh')
+                // Check if 401 response was returned - refresh tokens if so!
+                // tools.checkForUnauthorized(req, requestObj, err, response).then(function ({err, response}) {
+                //   if(err || response.statusCode != 200) {
+                //     return res.json({error: err, statusCode: response.statusCode})
+                //   }
+
+                //   // API Call was a success!
+                //   res.json(JSON.parse(response.body))
+                // }, function (err) {
+                //   console.log(err)
+                //   return res.json(err)
+                // })
+            })
+        }
+
+    });
     // wer.then(function cv(df){
     //     console.log(df);
     //     console.log("in wer .then");
@@ -295,58 +410,58 @@ app.get('/call_api', function (req, res) {
     // });
 
 
-    if (AccessToken == undefined) {
-        // console.log("no token");
-        res.status(401);
-        console.log("eror token status");
-        // console.log(res.statusCode);
-        res.send("no token for u");
-    }
-    else {
+    // if (AccessToken == undefined) {
+    //     // console.log("no token");
+    //     res.status(401);
+    //     console.log("eror token status");
+    //     // console.log(res.statusCode);
+    //     res.send("no token for u");
+    // }
+    // else {
 
-        // console.log("e516546");
-           console.log("new token ::::::::::::::::::::::::::::::");
-           console.log(gRefreshAccessToken);
+    //     // console.log("e516546");
+    //        console.log("new token ::::::::::::::::::::::::::::::");
+    //        console.log(gRefreshAccessToken);
 
-        obj = JSON.parse(AccessToken);
-        token = obj.access_token;
-        // console.log("accccssssssssssssss  " + token)
-        if (!token) return res.json({ error: 'Not authorized' })
-        // if(!req.session.realmId) return res.json({
-        //   error: 'No realm ID.  QBO calls only work if the accounting scope was passed!'
-        // })
+    //     obj = JSON.parse(AccessToken);
+    //     token = obj.access_token;
+    //     // console.log("accccssssssssssssss  " + token)
+    //     if (!token) return res.json({ error: 'Not authorized' })
+    //     // if(!req.session.realmId) return res.json({
+    //     //   error: 'No realm ID.  QBO calls only work if the accounting scope was passed!'
+    //     // })
 
-        // Set up API call (with OAuth2 accessToken)
-        var url = config.sandbox_api_uri + tryrealmID + "/query?query=Select * from Customer WHERE Id = '1'"
-        var requestObj = {
-            url: url,
-            headers: {
-                'Authorization': 'Bearer ' + token,
-                'Accept': 'application/json'
-            }
-        }
+    //     // Set up API call (with OAuth2 accessToken)
+    //     var url = config.sandbox_api_uri + tryrealmID + "/query?query=Select * from Customer WHERE Id = '1'"
+    //     var requestObj = {
+    //         url: url,
+    //         headers: {
+    //             'Authorization': 'Bearer ' + token,
+    //             'Accept': 'application/json'
+    //         }
+    //     }
 
-        // Make API call
-        request(requestObj, function (err, response) {
-            console.log("response status code call api");
-            console.log(response.statusCode);
+    //     // Make API call
+    //     request(requestObj, function (err, response) {
+    //         console.log("response status code call api");
+    //         console.log(response.statusCode);
 
-            res.send(response.body)
-            //  res.redirect('/refresh')
-            // Check if 401 response was returned - refresh tokens if so!
-            // tools.checkForUnauthorized(req, requestObj, err, response).then(function ({err, response}) {
-            //   if(err || response.statusCode != 200) {
-            //     return res.json({error: err, statusCode: response.statusCode})
-            //   }
+    //         res.send(response.body)
+    //         //  res.redirect('/refresh')
+    //         // Check if 401 response was returned - refresh tokens if so!
+    //         // tools.checkForUnauthorized(req, requestObj, err, response).then(function ({err, response}) {
+    //         //   if(err || response.statusCode != 200) {
+    //         //     return res.json({error: err, statusCode: response.statusCode})
+    //         //   }
 
-            //   // API Call was a success!
-            //   res.json(JSON.parse(response.body))
-            // }, function (err) {
-            //   console.log(err)
-            //   return res.json(err)
-            // })
-        })
-    }
+    //         //   // API Call was a success!
+    //         //   res.json(JSON.parse(response.body))
+    //         // }, function (err) {
+    //         //   console.log(err)
+    //         //   return res.json(err)
+    //         // })
+    //     })
+    // }
 })
 
 // app.get('/launch', function (req, res) {
