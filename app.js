@@ -10,6 +10,7 @@ var crypto = require('crypto');
 var QuickBooks = require('node-quickbooks');
 var queryString = require('query-string');
 var fs = require('fs');
+var sleep = require('sleep');
 var json2csv = require('json2csv');
 var Tokens = require('csrf');
 var csrf = new Tokens();
@@ -19,10 +20,10 @@ var OAuthClient = require('intuit-oauth');
 app.use(cors());
 // Configure View and Handlebars
 app.use(express.static(path.join(__dirname, '')))
-app.set('views', path.join(__dirname, 'views'))
-var exphbs = require('express-handlebars');
-var hbs = exphbs.create({});
-app.engine('handlebars', hbs.engine);
+// app.set('views', path.join(__dirname, 'views'))
+// var exphbs = require('express-handlebars');
+// var hbs = exphbs.create({});
+// app.engine('handlebars', hbs.engine);
 app.set('view engine', 'handlebars');
 app.use(session({ secret: 'secret', resave: 'false', saveUninitialized: 'false' }))
 
@@ -30,7 +31,7 @@ app.use(session({ secret: 'secret', resave: 'false', saveUninitialized: 'false' 
 Create body parsers for application/json and application/x-www-form-urlencoded
  */
 var bodyParser = require('body-parser')
-var AccessToken;
+var AccessToken,gRefreshAccessToken;
 app.use(bodyParser.json())
 var realmid2;
 var urlencodedParser = bodyParser.urlencoded({ extended: false })
@@ -38,8 +39,9 @@ var oauthClient = new OAuthClient({
     clientId: "Q08wlNwFEKuGgqZHFo5tUxGr2TdF4jLb8VM2RZ9wfjYeVFX0dW",
     clientSecret: "cPMp1dQ21bOIbXe4wYed7FmOhpkPryGjPQbfnULd",
     redirectUri: "http://localhost:3000/callback",
-    environment: 'sandbox'                                // ‘sandbox’ or ‘production’
-
+    environment: 'sandbox',                                // ‘sandbox’ or ‘production’
+    accessToken: '',
+    refreshToken: ''
 });
 var mysql = require('mysql');
 var con = mysql.createConnection({
@@ -48,13 +50,24 @@ var con = mysql.createConnection({
     password: "root",
     database: "growsari"
 });
+// var con2 = mysql.createConnection({
+//     host: "http://testbed2.riktamtech.com/phpmyadmin",
+//     user: "root",
+//     password: "lkgukg16",
+//     database: "growsari_merge"
+// });
+// con2.connect(function(err){
+//     if(err) throw err;
+//     console.log("connected to testbed");
+// })
 //    var departments;
 con.connect(function (err) {
     if (err) throw err;
-    console.log("Connected!");
+    // console.log("Connected!");
 });
 app.get('/', function (req, res) {
-    console.log("localhost");
+    // console.log("localhost");
+    // console.log(res.statusCode);
     var authUri = oauthClient.authorizeUri({ scope: [OAuthClient.scopes.Accounting, OAuthClient.scopes.OpenId], state: 'testState' });  // can be an array of multiple scopes ex : {scope:[OAuthClient.scopes.Accounting,OAuthClient.scopes.OpenId]}
     res.redirect(authUri);
 });
@@ -73,110 +86,30 @@ var newLine = "\r\n";
 
 app.use(express.static('views'));
 
-// app.get('/', function(req, res) {
-
-//     // Render home page with params
-//     console.log("received /")
-//     res.render('index', {
-//         redirect_uri: config.redirectUri,
-//         oauth2_token_json: oauth2_token_json
-//     });
-// });
-
-// app.get('/authUri', function (req, res) {
-//     //  console.log("authuri");
-//     // // Generate csrf Anti Forgery 
-//     // req.session.secret = csrf.secretSync();
-//     // var state = csrf.create(req.session.secret);
-
-//     // // Generate the AuthUrl
-//     // var redirecturl = config.authorization_endpoint + '?' + queryString.stringify({
-//     //     'client_id': config.clientId,
-//     //     'client_secret': config.clientSecret,
-//     //     'redirect_uri': config.redirectUri,  //Make sure this path matches entry in application dashboard
-//     //     'scope': config.scopes.connect_to_quickbooks[0] + ' ' + config.scopes.sign_in_with_intuit[0] + ' ' + config.scopes.sign_in_with_intuit[1] + ' ' + config.scopes.sign_in_with_intuit[2] + ' ' + config.scopes.sign_in_with_intuit[3] + ' ' + config.scopes.sign_in_with_intuit[4],
-//     //     'response_type': 'code',
-//     //     'state': state
-//     // });
-
-//     // console.log("The redirectURL is :"+redirecturl);
-//     // res.redirect(redirecturl);
-// });
-
-/*
-  Route to handle the Launch functionality with SSO Model for Apps
- */
-// app.get('/launch', function (req, res) {
-
-//     // Generate csrf Anti Forgery
-//     req.session.secret = csrf.secretSync();
-//     var state = csrf.create(req.session.secret);
-
-//     // Generate the AuthUrl
-//     var redirecturl = config.authorization_endpoint + '?' + queryString.stringify({
-//         'client_id': config.clientId,
-//         'redirect_uri': config.launchRedirectUri,  //Make sure this path matches entry in application dashboard
-//         'scope': config.scopes.sign_in_with_intuit[0] + ' ' + config.scopes.sign_in_with_intuit[1] + ' ' + config.scopes.sign_in_with_intuit[2] + ' ' + config.scopes.sign_in_with_intuit[3] + ' ' + config.scopes.sign_in_with_intuit[4],
-//         'response_type': 'application/json',
-//         'state': state
-//     });
-
-//     // console.log("The redirectURL during Launch is i:"+redirecturl);
-//     res.redirect(redirecturl);
-// });
-
-
-/*
-  Callback to handle Launch functionality
- */
-// app.get('/launchCallback', function (req, res) {
-
-//     var parsedUri = queryString.parse(req.originalUrl);
-//     realmId = parsedUri.realmId;
-
-//     console.log("The RealmID context from Intuit during Launch is:" + realmId);
-//     res.send('');
-// });
-
+var test_auth;
 app.get('/callback', function (req, res) {
-    // console.log(req.session.accessToken);
-    // console.log("req.session.accesstoken");
     console.log("callback");
-    // console.log("Inside Callback :");
-    // console.log(req)
     var parseRedirect = req.url;
-    // console.log("parse_redirect____" + parseRedirect);
-
     // Exchange the auth code retrieved from the **req.url** on the redirectUri
     oauthClient.createToken(parseRedirect)
         .then(function (authResponse) {
             // console.log('The Token is  ' + JSON.stringify(authResponse.getJson().access_token));
+            test_auth = authResponse.getJson();
             accessToken = JSON.stringify(authResponse.getJson());
-            console.log("access token in callback is");
-            console.log(accessToken);
+            // console.log("access token in callback is");
+            // console.log(accessToken);
             AccessToken = accessToken;
+
         })
         .catch(function (e) {
             // console.error("The error message is :" + e.originalMessage);
             console.error(e.intuit_tid);
         });
-    // oauthClient.refresh()
-    // .then(function(authResponse) {
-    //     console.log('Tokens refreshed : ' + JSON.stringify(authResponse.json()));
-    // })
-    // .catch(function(e) {
-    //     console.error("The error message is :"+e.originalMessage);
-    //     console.error(e.intuit_tid);
-    // });
+    // console.log("after await");
+    // console.log(AccessToken);
     /////////////////////
     var parsedUri = queryString.parse(req.originalUrl);
     realmId = parsedUri.realmId;
-    // console.log(realmId + "===is realmid");
-    // console.log(typeof (realmId) + "type of realmID");
-    // oauth2_token_json.realmId= realmId;
-    // realmid2=realmId;
-
-    // console.log("The RealmID context from Intuit during GetAppNow is :" + realmId);
     tryrealmID = realmId;
     var auth = (new Buffer(config.clientId + ':' + config.clientSecret).toString('base64'));
     var postBody = {
@@ -197,20 +130,15 @@ app.get('/callback', function (req, res) {
         //  accessToken = JSON.parse(res.body);
         oauth2_token_json = JSON.stringify(accessToken, null, 2);
         var oauth2_token_json2 = JSON.stringify(accessToken.access_token, null, 2);
-        // console.log('The access tokeb is :' + oauth2_token_json);
-        //  AccessToken= oauth2_token_json2;
     });
     // res.redirect('http://localhost:3000/call_api/');
     res.send("hey u got access try your api calls now");
 });
 app.post('/addcustomer', function (req, res) {
-    // console.log("my acces tokennnnnnnn");
-    // console.log(req.session.accessToken);
-    // console.log(AccessToken);
     console.log("add customer");
     var token;
     if (AccessToken == undefined) {
-        console.log("no token")
+        // console.log("no token")
         // res.redirect('http://localhost:3000');
         res.send("no token for u");
     }
@@ -219,29 +147,18 @@ app.post('/addcustomer', function (req, res) {
 
         obj = JSON.parse(AccessToken);
         token = obj.access_token;
-        console.log("accccssssssssssssss  " + obj.access_token)
+        // console.log("accccssssssssssssss  " + obj.access_token)
 
         if (!token) return res.json({ error: 'Not authorized' })
 
 
         // Set up API call (with OAuth2 accessToken)
-        // var url = config.api_uri + req.session.realmId + '/companyinfo/' + req.session.realmId
         var url1 = config.sandbox_api_uri + tryrealmID + '/customer'
 
-        console.log('Making API call to: ' + url1)
-        console.log("token:::::::::" + token)
+        // console.log('Making API call to: ' + url1)
+        // console.log("token:::::::::" + token)
 
-        // JSON.stringify(my_details);
-
-        // console.log(requestobj2)
-        // Make API call
-        console.log("add customer before error check")
-        // request.post(requestobj2, function (err, response) {
-        //   console.log("check response for api call")
-        //   // console.log(response.body)
-        //   // res.send(response.body)
-        //   console.log("check body for add customer call")
-        // console.log(response)})
+        // console.log("add customer before error check")
         var body1 = {
             "BillAddr": {
                 "Line1": "123 Main Street",
@@ -275,35 +192,121 @@ app.post('/addcustomer', function (req, res) {
             json: body1
 
         }, function (err, res) {
-            console.log(res);
+            // console.log(res);
             //   res.send("added customer");
         });
     }
 });
 app.get('/qbtrail', function (req, res) {
+    console.log("response code of qbtrail");
+    // console.log(res.statusCode);
 
     con.query("SELECT * FROM `order` ord INNER JOIN order_status ordstatus ON ord.id = ordstatus.order_id INNER JOIN store_warehouse_shipper ON ord.associate_id = store_warehouse_shipper.id INNER JOIN store ON store_warehouse_shipper.store_id = store.id WHERE ordstatus.status = 'delivered' ",
         function (err, rows, fields) {
             if (err) throw err;
-            console.log("listing");
-              
-             console.log(rows);
+            // console.log("listing");
+
+            // console.log(rows);
             res.send(JSON.stringify(rows, null, 2));
         });
 });
+const callme = function () {
+    console.log("in call me function");
+    var xy ;
+    // var ret;
+
+    xy = oauthClient.refreshUsingToken(obj.refresh_token)
+        .then(function (authResponse) {
+            console.log("xy in call meeeeeeeeeeeeeeeeeeeeeeeee");
+            console.log("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
+        //    console.log( JSON.stringify(authResponse.getJson()));
+           var tfg =JSON.stringify(authResponse.getJson());
+           objfg = JSON.parse(tfg);
+           tokenfg = objfg.access_token;
+           gRefreshAccessToken= tokenfg;
+            
+            // console.log("authresponse access token "+authResponse.token.Token.access_token);
+            
+            console.log(tokenfg);
+            // return authResponse;
+            // console.log("qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq");
+        })
+        .catch(function (e) {
+            console.error("The error message is er:" + e);
+            console.error(e.intuit_tid);
+        });
+       
+        console.log(xy);
+    
+    return  xy;
+};
 app.get('/call_api', function (req, res) {
-    // console.log("my acces tokennnnnnnn");
-    // console.log(req.session);
+    console.log("response code for call api");
+    // console.log(res.statusCode);
     // console.log(AccessToken);
+    obj = JSON.parse(AccessToken);
+    token = obj.access_token;
+    // console.log("refreshhhhhhhhhhhhhhh  " + obj.refresh_token);
+
     console.log("call api session");
     var token;
+    oauthClient.refreshToken = obj.refresh_token;
+    oauthClient.accessToken = obj.access_token;
+    // var qwert= oauthClient.refreshUsingToken(obj.refresh_token)
+    //     .then(function (authResponse) {
+    //         // console.log("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
+    //         // console.log('Tokens refreshed : ' + JSON.stringify(authResponse.json()));
+    //         // console.log("qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq");
+    //     })
+    //     .catch(function (e) {
+    //         console.error("The error message is :" + e.originalMessage);
+    //         console.error(e.intuit_tid);
+    //     });
+    var wer = callme();
+    // wer.then(function cv(df){
+    //     console.log(df);
+    //     console.log("in wer .then");
+    // });
+    console.log(wer);
+    // sleep.msleep(6500);
+    console.log("here new token nnnnnnnnnnnnnnnnn");
+    // var qbo = new QuickBooks(config.clientId,
+    //     config.clientSecret,
+    //     obj.access_token, /* oAuth access token */
+    //     false, /* no token secret for oAuth 2.0 */
+    //     realmId,
+    //     config.useSandbox, /* use a sandbox account */
+    //     true, /* turn debugging on */
+    //     4, /* minor version */
+    //     '2.0', /* oauth version */
+    //     obj.refresh_token /* refresh token */);
+    // console.log("quick books object");
+    // console.log(qbo);
+    // qbo.refreshAccessToken(function (err, refreshToken) {
+    //     if (err) {
+    //         console.log("error for refreshing token");
+    //         console.log(err);
+
+    //     }
+    //     else {
+    //         console.log("The response refresh is :" + JSON.stringify(refreshToken, null, 2));
+
+    //     }
+    // });
+
+
     if (AccessToken == undefined) {
         // console.log("no token");
+        res.status(401);
+        console.log("eror token status");
+        // console.log(res.statusCode);
         res.send("no token for u");
     }
     else {
-        // console.log("e516546");
 
+        // console.log("e516546");
+           console.log("new token ::::::::::::::::::::::::::::::");
+           console.log(gRefreshAccessToken);
 
         obj = JSON.parse(AccessToken);
         token = obj.access_token;
@@ -314,12 +317,7 @@ app.get('/call_api', function (req, res) {
         // })
 
         // Set up API call (with OAuth2 accessToken)
-        // var url = config.api_uri + req.session.realmId + '/companyinfo/' + req.session.realmId
         var url = config.sandbox_api_uri + tryrealmID + "/query?query=Select * from Customer WHERE Id = '1'"
-        // console.log("type of token.access_token")
-        // console.log(typeof (token));
-
-        // console.log('Making API call to: ' + url)
         var requestObj = {
             url: url,
             headers: {
@@ -330,8 +328,9 @@ app.get('/call_api', function (req, res) {
 
         // Make API call
         request(requestObj, function (err, response) {
-            // console.log("check response for api call")
-            // console.log(response.body)
+            console.log("response status code call api");
+            console.log(response.statusCode);
+
             res.send(response.body)
             //  res.redirect('/refresh')
             // Check if 401 response was returned - refresh tokens if so!
