@@ -136,6 +136,360 @@ app.get('/callback', function (req, res) {
     });
     res.send("hey u got access try your api calls now");
 });
+app.get('/addDetails', function (req, res) {
+    con.query("SELECT storeId FROM QBids", function (err, qbdata, fields) {
+        // console.log(qbdata);
+        // console.log("******************");
+        qbdata3 = qbdata;
+        var sit = JSON.stringify(qbdata);
+        var sit2 = JSON.parse(sit);
+        // console.log(sit2);
+        //   console.log(qbdata3.storeId);
+        console.log("////////////////////////");
+        console.log(sit2.storeId);
+        console.log("------------------------");
+        con.query("SELECT *FROM `order` ord INNER JOIN order_status ordstatus ON ord.id = ordstatus.order_id INNER JOIN store_warehouse_shipper ON ord.associate_id = store_warehouse_shipper.id INNER JOIN store ON store_warehouse_shipper.store_id = store.id INNER JOIN account ON store.account_id = account.id INNER JOIN loan ON ord.id = loan.order_id WHERE ordstatus.status = 'delivered' LIMIT 17,1",
+            function (err, rows, fields) {
+
+                if (err) throw err;
+                rows.forEach(element => {
+                    var addstore = false;
+                    var totaladdstore = true;
+                    sit2.forEach(qbid => {
+                        // console.log("element.store_id-------->");
+                        // console.log(element.store_id);
+                        // console.log("qbid-------->");
+                        // console.log(qbid.storeId);
+                        if (element.store_id == qbid.storeId) {
+                            // console.log("customer already present");
+                            addstore = false;
+                        }
+                        else {
+                            //  console.log("add customer code");
+                            addstore = true;
+                        }
+                        totaladdstore = totaladdstore && addstore;
+                        // console.log("--------->" + element.store_id + "----------->" + totaladdstore);
+                    });
+                    if (totaladdstore) {
+                        console.log("add customer code" + element.store_id);
+                        addStore(element);
+
+
+                    }
+                    else {
+                        console.log("customer already present" + element.store_id);
+                    }
+                    addTransaction(element);
+                });
+                // res.send(rows);
+            });
+
+    });
+});
+const addTransaction = function (TransactionDetails) {
+    console.log("add transaction" + TransactionDetails.store_id);
+    var token;
+    con.query("SELECT qbId FROM QBids WHERE storeId = " + TransactionDetails.store_id, function (err, rows) {
+        console.log(rows);
+        var p = JSON.stringify(rows);
+        var result2 = JSON.parse(p);
+        // console.log('///////////////');
+        console.log(result2);
+        // console.log('///////////////');
+        // console.log(result2[0].qbId);
+        var qbid_trans = result2[0].qbId;
+        console.log("qbid_transsss");
+        console.log(qbid_trans);
+        // console.log('///////////////');
+        // console.log(result2);
+
+        if (gAccessToken == undefined) {
+            console.log("no token for u");
+        }
+        else {
+
+            var qbdata3;
+            // console.log("qbdata3===========");
+            // console.log(qbdata3);
+
+
+            // con.query("SELECT *FROM `order` ord INNER JOIN order_status ordstatus ON ord.id = ordstatus.order_id INNER JOIN store_warehouse_shipper ON ord.associate_id = store_warehouse_shipper.id INNER JOIN store ON store_warehouse_shipper.store_id = store.id INNER JOIN account ON store.account_id = account.id WHERE ordstatus.status = 'delivered' LIMIT 2",
+            //     function (err, rows, fields) {
+
+
+            gData = TransactionDetails;
+            console.log(gData.address);
+
+            token = gAccessToken;
+
+            if (!token) return res.json({ error: 'Not authorized' })
+            var url1 = config.sandbox_api_uri + '123146204102474' + '/invoice'
+
+            console.log("***************************");
+            // console.log(gData);
+            var kTPC= parseFloat(gData.total_product_cost);
+            var kDC= parseFloat(gData.delivery_charges);
+            var kPC= parseFloat(gData.processing_charges);
+            console.log("gdata");
+            var body2 = {
+                "Line": [
+                    {
+                        "Id": "1",
+                        "LineNum": 1,
+                        "Description": "Assorted Groceriesyyyyyyy",
+                        "Amount": kTPC,
+                        "DetailType": "SalesItemLineDetail",
+                        "SalesItemLineDetail": {
+
+                            "UnitPrice": kTPC,
+                            "Qty": 1
+                        }
+                    },
+                    {
+                        "Id": "2",
+                        "LineNum": 2,
+                        "Description": "Delivery Charge",
+                        "Amount": kDC,
+                        "DetailType": "SalesItemLineDetail",
+                        "SalesItemLineDetail":
+                        {
+
+                            "UnitPrice": kDC,
+                            "Qty": 1
+
+                        }
+                    },
+                    {
+                        "Id": "3",
+                        "LineNum": 3,
+                        "Description": "Processing Fees",
+                        "Amount": kPC,
+                        "DetailType": "SalesItemLineDetail",
+                        "SalesItemLineDetail":
+                        {
+
+                            "UnitPrice": kPC,
+                            "Qty": 1
+
+                        }
+                    },
+                    {
+                        "Amount": 3000,
+                        "DetailType": "SubTotalLineDetail",
+                        "SubTotalLineDetail": {}
+                    }
+                ], "CustomerMemo": {
+                    "value": "Thank you for your business and have a great day!"
+                },
+                "CustomerRef":
+                {
+                    "value": qbid_trans
+                }
+            };
+            console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+            console.log(body2);
+            console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+            var body1 = {
+                "Line": [
+                    {
+                        "Id": "1",
+                        "LineNum": 1,
+                        "Description": "Assorted Groceries",
+                        "Amount": gData.total_product_cost,
+                        "DetailType": "SalesItemLineDetail",
+                        "SalesItemLineDetail":
+                        {
+                            "ItemRef":
+                            {
+                                "name": "Assorted Groceriesy"
+                            },
+                            "UnitPrice": gData.total_product_cost,
+                            "Qty": 1
+
+                        }
+                    },
+                    {
+                        "Id": "2",
+                        "LineNum": 2,
+                        "Description": "Delivery Charge",
+                        "Amount": gData.delivery_charges,
+                        "DetailType": "SalesItemLineDetail",
+                        "SalesItemLineDetail":
+                        {
+                            "ItemRef":
+                            {
+
+                                "name": "Delivery Charge"
+                            },
+                            "UnitPrice": gData.delivery_charges,
+                            "Qty": 1
+
+                        }
+                    },
+                    {
+                        "Id": "3",
+                        "LineNum": 3,
+                        "Description": "Processing Fees",
+                        "Amount": gData.processing_charges,
+                        "DetailType": "SalesItemLineDetail",
+                        "SalesItemLineDetail":
+                        {
+                            "ItemRef":
+                            {
+
+                                "name": "Processing Fee"
+                            },
+                            "UnitPrice": gData.processing_charges,
+                            "Qty": 1
+
+                        }
+                    },
+                    {
+
+                        "DetailType": "SubTotalLineDetail",
+                        "SubTotalLineDetail":
+                            {}
+                    }],
+                "CustomerMemo": {
+                    "value": "Thank you for your business and have a great day!"
+                },
+                "CustomerRef":
+                {
+                    "value": qbid_trans
+                }
+            };
+            request.post({
+                url: url1,
+                auth: {
+                    'bearer': token
+                },
+                json: body2
+
+            }, function (err, res) {
+                console.log("***********************");
+                console.log(res.body); console.log("***********************");
+
+
+                // con.query("INSERT INTO QBids SET ?", da, function (err, result) {
+                //     if (err) throw err;
+
+                //     console.log("1 new customer record inserted");
+
+                // });
+
+                // console.log(res.body.Id);
+
+
+
+
+                console.log("***********************");
+                console.log(typeof res);
+
+            });
+
+            // });
+            // });
+
+        }
+    });
+
+};
+const addStore = function (storeDetails) {
+    console.log("add customer" + gAccessToken);
+    var token;
+    if (gAccessToken == undefined) {
+        console.log("no token for u");
+    }
+    else {
+
+        var qbdata3;
+        console.log("qbdata3===========");
+        console.log(qbdata3);
+
+
+        // con.query("SELECT *FROM `order` ord INNER JOIN order_status ordstatus ON ord.id = ordstatus.order_id INNER JOIN store_warehouse_shipper ON ord.associate_id = store_warehouse_shipper.id INNER JOIN store ON store_warehouse_shipper.store_id = store.id INNER JOIN account ON store.account_id = account.id WHERE ordstatus.status = 'delivered' LIMIT 2",
+        //     function (err, rows, fields) {
+
+
+        gData = storeDetails;
+        console.log(gData.address);
+
+        token = gAccessToken;
+
+        if (!token) return res.json({ error: 'Not authorized' })
+        var url1 = config.sandbox_api_uri + '123146204102474' + '/customer'
+
+        console.log("***************************");
+        // console.log(gData);
+        console.log("gdata");
+        var body1 = {
+            "BillAddr": {
+                "Line1": gData.city,
+                "City": gData.city,
+                "Country": gData.country,
+                "CountrySubDivisionCode": "-",
+                "PostalCode": gData.pincode
+            },
+            // "Notes": "Here are other details.",
+            "Title": "Mr/Mrs",
+            "GivenName": "",
+            "MiddleName": "",
+            "FamilyName": "",
+            "Suffix": "",
+            "FullyQualifiedName": gData.customer_name,
+            "CompanyName": gData.name,
+            "DisplayName": gData.display_name,
+            "PrimaryPhone": {
+                "FreeFormNumber": gData.phone
+            },
+            "PrimaryEmailAddr": {
+                "Address": gData.email
+            },
+
+        };
+        request.post({
+            url: url1,
+            auth: {
+                'bearer': token
+            },
+            json: body1
+
+        }, function (err, res) {
+            if (err) throw err;
+            else {
+                console.log("***********************");
+                console.log(res.body); console.log("***********************");
+
+                console.log(res.body.Customer.Id); console.log("***********************");
+                var da = {
+                    storeId: gData.store_id,
+                    qbId: res.body.Customer.Id
+                };
+                con.query("INSERT INTO QBids SET ?", da, function (err, result) {
+                    if (err) throw err;
+
+                    console.log("1 new customer record inserted");
+                    // return res.body.Customer.Id;
+
+                });
+
+                console.log(res.body.Id);
+
+
+
+
+                console.log("***********************");
+                console.log(typeof res);
+
+            }
+        });
+
+        // });
+        // });
+
+    }
+}
 app.post('/addcustomer', function (req, res) {
     console.log("add customer" + gAccessToken);
     var token;
@@ -143,27 +497,37 @@ app.post('/addcustomer', function (req, res) {
         res.send("no token for u");
     }
     else {
-        con.query("SELECT *FROM `order` ord INNER JOIN order_status ordstatus ON ord.id = ordstatus.order_id INNER JOIN store_warehouse_shipper ON ord.associate_id = store_warehouse_shipper.id INNER JOIN store ON store_warehouse_shipper.store_id = store.id INNER JOIN account ON store.account_id = account.id WHERE ordstatus.status = 'delivered' LIMIT 2",
+
+        var qbdata3;
+        console.log("qbdata3===========");
+        console.log(qbdata3);
+
+
+        con.query("SELECT *FROM `order` ord INNER JOIN order_status ordstatus ON ord.id = ordstatus.order_id INNER JOIN store_warehouse_shipper ON ord.associate_id = store_warehouse_shipper.id INNER JOIN store ON store_warehouse_shipper.store_id = store.id INNER JOIN account ON store.account_id = account.id WHERE ordstatus.status = 'delivered' LIMIT 10,2",
             function (err, rows, fields) {
                 if (err) throw err;
-                gData= rows[0];
-                console.log(gData.address);
                 // rows.forEach(element => {
-                //     console.log(element.store_id);
+                //       qbdata3.forEach(qbid => {
+                //           console.log("element.store_id-------->");
+                //           console.log(element.store_id);
+                //           console.log("qbid-------->");
+                //           console.log(qbid);
+                //         if(element.store_id==qbid){
+                //             console.log("customer already present");
+                //         }
+                //         else {
+                //              console.log("add customer code");
+                //         }
+                //       });                    
                 // });
+                gData = rows[1];
+                console.log(gData.address);
+
                 token = gAccessToken;
-        
+
                 if (!token) return res.json({ error: 'Not authorized' })
                 var url1 = config.sandbox_api_uri + '123146204102474' + '/customer'
-                // console.log("line1 "+gData.address);
-                // console.log("city "+gData.city);
-                // console.log("country "+gData.country);
-                // console.log("postal code "+gData.pincode);
-                // console.log("Fully Qualified name "+gData.customer_name);
-                // console.log("Company "+gData.name);
-                // console.log("Display Name "+gData.display_name);
-                // console.log("free for number "+gData.phone);
-                // console.log("email "+gData.email);
+
                 console.log("***************************");
                 console.log(gData);
                 console.log("gdata");
@@ -190,7 +554,7 @@ app.post('/addcustomer', function (req, res) {
                     "PrimaryEmailAddr": {
                         "Address": gData.email
                     },
-        
+
                 };
                 request.post({
                     url: url1,
@@ -198,42 +562,53 @@ app.post('/addcustomer', function (req, res) {
                         'bearer': token
                     },
                     json: body1
-        
+
                 }, function (err, res) {
                     console.log("***********************");
                     console.log(res.body); console.log("***********************");
-        
+
                     console.log(res.body.Customer.Id); console.log("***********************");
                     var da = {
-                        storeId : gData.store_id,
-                        qbId : res.body.Customer.Id
+                        storeId: gData.store_id,
+                        qbId: res.body.Customer.Id
                     };
-                    con.query("INSERT INTO QBids SET ?",da , function(err, result) {
+                    con.query("INSERT INTO QBids SET ?", da, function (err, result) {
                         if (err) throw err;
-                    
+
                         console.log("1 new customer record inserted");
-                      
-                      });
-        
+
+                    });
+
                     console.log(res.body.Id);
-        
-        
-        
-        
+
+
+
+
                     console.log("***********************");
                     console.log(typeof res);
-        
+
                 });
- 
+
             });
+        // });
 
     }
+
     // console.log(res.body);
     res.send("added");
 });
 app.get('/growsariData', function (req, res) {
+    var qbdata2;
     console.log("response code of qbtrail");
-    con.query("SELECT *FROM `order` ord INNER JOIN order_status ordstatus ON ord.id = ordstatus.order_id INNER JOIN store_warehouse_shipper ON ord.associate_id = store_warehouse_shipper.id INNER JOIN store ON store_warehouse_shipper.store_id = store.id INNER JOIN account ON store.account_id = account.id WHERE ordstatus.status = 'delivered' LIMIT 1",        function (err, rows, fields) {
+    con.query("SELECT * from QBids", function (err, qbdata, fields) {
+        if (err) throw err;
+        console.log("//////////")
+        console.log(qbdata);
+        qbdata2 = qbdata;
+
+        console.log("qbdata2:::::::::::::::::::::");
+        console.log(qbdata2);
+        con.query("SELECT *FROM `order` ord INNER JOIN order_status ordstatus ON ord.id = ordstatus.order_id INNER JOIN store_warehouse_shipper ON ord.associate_id = store_warehouse_shipper.id INNER JOIN store ON store_warehouse_shipper.store_id = store.id INNER JOIN account ON store.account_id = account.id WHERE ordstatus.status = 'delivered' LIMIT 1", function (err, rows, fields) {
             if (err) throw err;
             rows.forEach(element => {
                 console.log(element.store_id);
@@ -241,19 +616,20 @@ app.get('/growsariData', function (req, res) {
             console.log("growsari data");
             console.log(rows[0]);
             gData = rows[0];
-            console.log("line1 "+gData.address);
-            console.log("city "+gData.city);
-            console.log("country "+gData.country);
-            console.log("postal code "+gData.pincode);
-            console.log("Fully Qualified name "+gData.customer_name);
-            console.log("Company "+gData.name);
-            console.log("Display Name "+gData.display_name);
-            console.log("free for number "+gData.phone);
-            console.log("email "+gData.email);
+            console.log("line1 " + gData.address);
+            console.log("city " + gData.city);
+            console.log("country " + gData.country);
+            console.log("postal code " + gData.pincode);
+            console.log("Fully Qualified name " + gData.customer_name);
+            console.log("Company " + gData.name);
+            console.log("Display Name " + gData.display_name);
+            console.log("free for number " + gData.phone);
+            console.log("email " + gData.email);
 
             console.log("growsari daat");
             res.send(JSON.stringify(rows, null, 2));
         });
+    });
 });
 const callme = async function () {
     console.log("in call me function refresh token============ " + gRefreshAccessToken);
@@ -335,7 +711,7 @@ app.get('/call_api', function (req, res) {
             console.log("gaccessToken:::::::::::::::::" + token);
             if (!token) return res.json({ error: 'Not authorized' })
 
-            var url = config.sandbox_api_uri + '123146204102474' + "/query?query=Select * from Customer WHERE Id= '1'"
+            var url = config.sandbox_api_uri + '123146204102474' + "/query?query=Select * from Customer WHERE Id= '85'"
             var requestObj = {
                 url: url,
                 headers: {
@@ -349,7 +725,8 @@ app.get('/call_api', function (req, res) {
                 console.log("response status code call api");
                 console.log(response.statusCode);
 
-                res.send(response.body);
+                // res.send(response.body);
+                res.redirect('http://localhost:3000/addDetails');
 
             });
         }
@@ -360,27 +737,18 @@ app.get('/call_api', function (req, res) {
 });
 
 app.get('/test', function (req, res) {
-    console.log("hello");
-    var url = " https://sandbox-quickbooks.api.intuit.com/v3/company/123146204102474/customer/1"
-    console.log("accc     " + accessToken)
-    request({
-        url: url,
-        auth: {
-            'bearer': accessToken.access_token
-        },
-        json: true
-    }, function (error, response, body) {
-
-        if (!error && response.statusCode === 200) {
-            console.log(body + "  ==========okkk")
-            console.log(body)
-            // Print the json response
-        }
-        else {
-            console.log("error")
-        }
+    var sd = 15
+    con.query("SELECT qbId FROM QBids WHERE storeId = " + sd, function (err, rows) {
+        console.log(rows);
+        var p = JSON.stringify(rows);
+        var result2 = JSON.parse(p);
+        console.log('///////////////');
+        console.log(result2.qbId);
+        console.log('///////////////');
+        console.log(result2[0].qbId);
+        console.log('///////////////');
+        console.log(result2);
     });
-    res.send("body")
 });
 app.get('/refreshAccessToken', function (req, res) {
 
