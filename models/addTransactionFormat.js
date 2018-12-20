@@ -8,7 +8,7 @@ const setAddTransaction = function(gData,qbid_trans){
             {
                 "Id": "1",
                 "LineNum": 1,
-                "Description": "Assorted Groceriesiiiiiii",
+                "Description": "Assorted Groceries (inclusive 12% tax)",
                 "Amount": kTPC,
                 "DetailType": "SalesItemLineDetail",
                 "SalesItemLineDetail": {
@@ -20,7 +20,7 @@ const setAddTransaction = function(gData,qbid_trans){
             {
                 "Id": "2",
                 "LineNum": 2,
-                "Description": "Delivery Chargesssssyy",
+                "Description": "Delivery Charges",
                 "Amount": kDC,
                 "DetailType": "SalesItemLineDetail",
                 "SalesItemLineDetail":
@@ -34,7 +34,7 @@ const setAddTransaction = function(gData,qbid_trans){
             {
                 "Id": "3",
                 "LineNum": 3,
-                "Description": "Processing Fees",
+                "Description": "Processing Fee",
                 "Amount": kPC,
                 "DetailType": "SalesItemLineDetail",
                 "SalesItemLineDetail":

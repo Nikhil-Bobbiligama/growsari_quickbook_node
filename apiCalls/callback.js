@@ -3,8 +3,9 @@ require('dotenv').config();
 var request = require('request');
 var queryString = require('query-string');
 var fs = require('fs');
+var fwriteTokenQuery = require('../Query/writeToken');
 var config = require('../config.json');
-const callback = function (oauthClient, req, res) {
+const callback = function (oauthClient, con, req, res) {
     console.log("in call back function");
     console.log("callback");
     var parseRedirect = req.url;
@@ -17,29 +18,47 @@ const callback = function (oauthClient, req, res) {
             console.log("/////////////////////////////////")
             console.log(temp_daata.refresh_token);
             global.test = "call back test variable";
-            fs.writeFile("/home/admin1/Desktop/qb/OAuth2.0-demo-nodejs-master/accessToken", temp_daata.access_token, function (err) {
-                if (err) {
-                    return console.log(err);
-                }
-                fs.writeFile("/home/admin1/Desktop/qb/OAuth2.0-demo-nodejs-master/refreshToken", temp_daata.refresh_token, function (err) {
-                    if (err) {
-                        return console.log(err);
-                    }
-
-                    console.log("The refresh file was saved!");
-                });
-                fs.writeFile("/home/admin1/Desktop/qb/OAuth2.0-demo-nodejs-master/Token", accessToken, function (err) {
-                    if (err) {
-                        return console.log(err);
-                    }
-
-                    console.log("The token file was saved!");
-                });
-                console.log("The file was saved!");
+            var newToken= {
+             AccessToken:temp_daata.access_token,
+             RefreshToken:temp_daata.refresh_token,
+             Token : temp_daata
+            };
+            // con.query("UPDATE TokenTable SET ? WHERE TokenId = 1",newToken, function(err,result){
+            //     console.log("updated token into table");
+            // });
+            fwriteTokenQuery.writeQuery(con,newToken, function (returnValue) {
+                console.log("in new Technique this should print after tokens");
+                console.log("=======================");
+                console.log(returnValue);
+                console.log("this should print last");
+                // res.send("success");
+                // use the return value here instead of like a regular (non-evented) return value
             });
+            // fs.writeFile("/home/admin1/Desktop/qb/OAuth2.0-demo-nodejs-master/accessToken", temp_daata.access_token, function (err) {
+            //     if (err) {
+            //         return console.log(err);
+            //     }
+
+            //     fs.writeFile("/home/admin1/Desktop/qb/OAuth2.0-demo-nodejs-master/refreshToken", temp_daata.refresh_token, function (err) {
+            //         if (err) {
+            //             return console.log(err);
+            //         }
+
+            //         console.log("The refresh file was saved!");
+
+            //         fs.writeFile("/home/admin1/Desktop/qb/OAuth2.0-demo-nodejs-master/Token", accessToken, function (err) {
+            //             if (err) {
+            //                 return console.log(err);
+            //             }
+
+            //             console.log("The token file was saved!");
+            //         });
+            //     });
+            //     console.log("The file was saved!");
+            // });
 
             console.log("*************************************");
-            AccessToken = accessToken;
+            // AccessToken = accessToken;
 
 
         })
